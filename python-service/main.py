@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from analyzer import calculate_trends
 
-app = FastAPI(title="EnergyBot Statistics Service")
+app = FastAPI(title="EnergyOps Statistics Service")
 
 
 class Invoice(BaseModel):

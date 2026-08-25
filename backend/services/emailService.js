@@ -4,7 +4,7 @@ import { Resend } from 'resend';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 function buildAlertHtml(invoiceData, analysisResult) {
-  const { companyName, billingPeriod, consumptionKwh } = invoiceData;
+  const { clientName, companyName, billingPeriod, consumptionKwh } = invoiceData;
   const { anomalies, recommendations, comparison } = analysisResult;
   const averageConsumption = comparison?.avgConsumption;
   const percentDifference = comparison?.consumptionDiffPct;
@@ -24,7 +24,8 @@ function buildAlertHtml(invoiceData, analysisResult) {
   return `
     <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
       <h2 style="color: #b91c1c;">⚠️ Anomalía Energética Detectada</h2>
-      <p><strong>Empresa:</strong> ${companyName}</p>
+      <p><strong>Cliente:</strong> ${clientName || 'N/D'}</p>
+      <p><strong>Proveedor:</strong> ${companyName}</p>
       <p><strong>Período de facturación:</strong> ${period}</p>
       <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
         <tr>
@@ -43,7 +44,7 @@ function buildAlertHtml(invoiceData, analysisResult) {
       <p><strong>Anomalía:</strong> ${anomalies}</p>
       <p><strong>Recomendación principal:</strong> ${topRecommendation}</p>
       <p style="margin-top: 24px;">
-        <a href="#" style="color: #2563eb;">Ver análisis completo en EnergyBot</a>
+        <a href="#" style="color: #2563eb;">Ver análisis completo en EnergyOps</a>
       </p>
     </div>
   `;
@@ -61,9 +62,9 @@ export async function sendAnomalyAlert(invoiceData, analysisResult) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'EnergyBot <onboarding@resend.dev>',
+      from: 'EnergyOps <onboarding@resend.dev>',
       to: process.env.ALERT_EMAIL,
-      subject: `⚠️ Anomalía Energética Detectada - ${invoiceData.companyName}`,
+      subject: `⚠️ Anomalía Energética Detectada - ${invoiceData.clientName || invoiceData.companyName}`,
       html: buildAlertHtml(invoiceData, analysisResult),
     });
 

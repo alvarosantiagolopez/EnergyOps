@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { extractInvoice } from '../api';
+import { extractInvoice, fetchClientNames } from '../api';
 import WorkflowSteps, { STEPS } from './WorkflowSteps';
 import ResultView from './ResultView';
 
@@ -8,6 +8,8 @@ const STEP_INTERVAL_MS = 900;
 
 function UploadView() {
   const [file, setFile] = useState(null);
+  const [clientName, setClientName] = useState('');
+  const [knownClientNames, setKnownClientNames] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -18,6 +20,12 @@ function UploadView() {
 
   useEffect(() => {
     return () => clearInterval(stepTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    fetchClientNames()
+      .then(setKnownClientNames)
+      .catch(() => {});
   }, []);
 
   const validateAndSetFile = (candidate) => {
@@ -48,7 +56,7 @@ function UploadView() {
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !clientName.trim()) return;
 
     setIsProcessing(true);
     setError(null);
@@ -60,7 +68,7 @@ function UploadView() {
     }, STEP_INTERVAL_MS);
 
     try {
-      const data = await extractInvoice(file);
+      const data = await extractInvoice(file, clientName.trim());
       clearInterval(stepTimerRef.current);
       setActiveStep(STEPS.length);
       setResult(data);
@@ -74,6 +82,7 @@ function UploadView() {
 
   const handleReset = () => {
     setFile(null);
+    setClientName('');
     setResult(null);
     setError(null);
     setActiveStep(0);
@@ -89,6 +98,29 @@ function UploadView() {
       <div className="page-header">
         <h1>Upload Invoice</h1>
         <p>Upload an energy invoice and let AI extract, compare, and analyze it.</p>
+      </div>
+
+      <div className="upload-field">
+        <label htmlFor="client-select" className="upload-field__label">
+          Client name
+        </label>
+        <select
+          id="client-select"
+          value={clientName}
+          onChange={(e) => setClientName(e.target.value)}
+          disabled={isProcessing}
+          className="upload-field__select"
+        >
+          <option value="">Select or enter a client...</option>
+          {knownClientNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        {clientName && !knownClientNames.includes(clientName) && (
+          <p className="upload-field__hint">New client: "{clientName}"</p>
+        )}
       </div>
 
       <div
@@ -126,7 +158,7 @@ function UploadView() {
         <button
           className="btn btn--primary"
           onClick={handleUpload}
-          disabled={!file || isProcessing}
+          disabled={!file || !clientName.trim() || isProcessing}
         >
           {isProcessing ? 'Processing...' : 'Analyze Invoice'}
         </button>

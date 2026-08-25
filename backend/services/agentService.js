@@ -59,7 +59,8 @@ function buildDecisionPrompt(invoiceData, analysisResult, historicalInvoices, cr
   return `You are an internal prioritization agent. An account team cannot manually review every invoice that comes in — you decide which clients need their attention first, based on multiple combined signals, not a single threshold.
 
 CURRENT INVOICE
-- Company: ${invoiceData.companyName}
+- Client: ${invoiceData.clientName}
+- Energy provider: ${invoiceData.companyName}
 - Consumption: ${invoiceData.consumptionKwh} kWh
 - Total cost: ${invoiceData.totalCost} ${invoiceData.currency}
 - Billing period: ${invoiceData.billingPeriod?.start} to ${invoiceData.billingPeriod?.end}
@@ -157,7 +158,7 @@ export async function prioritizeAndAct(invoiceData, analysisResult, historicalIn
         );
         actionTaken = 'flagged_for_manual_review';
       } else {
-        console.warn('[agentService] Cannot flag for manual review: no CRM contact for this company');
+        console.warn('[agentService] Cannot flag for manual review: no CRM contact for this client');
         actionTaken = 'skipped_no_crm_contact';
       }
       break;
@@ -170,7 +171,7 @@ export async function prioritizeAndAct(invoiceData, analysisResult, historicalIn
     case 'monitor_next_cycle':
     case 'no_action_needed':
     default: {
-      console.log(`[agentService] No external action for ${invoiceData.companyName}: ${decision.suggestedAction}. Reasoning: ${decision.reasoning}`);
+      console.log(`[agentService] No external action for ${invoiceData.clientName}: ${decision.suggestedAction}. Reasoning: ${decision.reasoning}`);
       actionTaken = 'logged_only';
       break;
     }

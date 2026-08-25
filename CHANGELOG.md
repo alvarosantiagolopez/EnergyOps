@@ -1,5 +1,64 @@
 # Changelog
 
+## [1.13.0] 25-08-2026
+
+### Fixed
+- **Data modeling bug: invoices were grouped by energy provider instead of client.** Historical comparison, CRM contacts, and the prioritization agent all keyed off `invoices.company` — the provider extracted from the PDF (Endesa, Iberdrola, ...) — instead of the actual business a company manages energy for. Since different clients can share the same provider, this could silently merge unrelated clients' consumption histories under one CRM contact, making anomaly detection and prioritization meaningless. See docs/decisions/012-client-vs-provider-data-model.md.
+
+### Added
+- `invoices.client_name` column: the primary grouping key for historical comparison, supplied by the user at upload time (required text input in `UploadView.jsx`, with a `<datalist>` of previously used client names sourced from a new `GET /api/invoices/client-names` endpoint).
+- `crm_contacts.provider` column: stores the last known energy provider for a client as metadata, separate from the client-keyed `company_name` column.
+
+### Changed
+- `backend/services/analysisService.js`: `analyzeInvoice()` now takes a `clientName` param and scopes the historical comparison query to `WHERE client_name = $1` instead of `WHERE company = $1`; `saveInvoice()` persists `client_name`.
+- `backend/services/crmService.js`: `syncInvoiceToCRM()` finds-or-creates `crm_contacts` by client name and stores the invoice's provider separately.
+- `backend/routes/invoices.js`: `POST /api/invoices/extract` requires a `clientName` form field alongside the file (400 if missing).
+- `backend/services/agentService.js` / `emailService.js`: prompts and alert emails reference both client and provider, with client as the primary identity.
+- `backend/db/seed.js`: the 9 seeded invoices are now assigned to 3 fake clients ("Mercadona - Gran Vía 12", "Grupo Inmobiliario Aurora", "Hostelería Sur S.L.") across the existing 3 providers; historical lookup is client-scoped.
+- Frontend (`ResultView.jsx`, `PriorityQueueView.jsx`, `HistoryView.jsx`, `DashboardView.jsx`): client name is now the primary displayed identifier, with provider shown as a secondary detail ("Mercadona - Gran Vía 12 · via Endesa").
+
+## [1.12.0] 25-08-2026
+
+### Fixed
+- **Layout was centered/narrow instead of full-width.** `.app` (`frontend/src/App.css`) had `max-width: 1100px; margin: 0 auto`, left over from the initial scaffold, making the whole app read as a centered landing page rather than a dashboard. Now `.app` spans the full viewport width with 2.5rem horizontal padding (1.5rem on tablet, 1rem on mobile); `.app-header`'s negative margins/padding were updated to match at each breakpoint.
+- **Design tokens defined but not fully applied.** `frontend/src/index.css` still had the original Vite scaffold's generic system-font stack and `#f5f7fa`/`#1f2933` colors as the `:root`/`body` base, which showed through wherever a component didn't set its own background/color. It now defers to the `--color-bg`/`--color-text` tokens from `App.css`.
+- **Duplicate "Latest Anomaly" display on Dashboard.** The KPI metric card and the anomaly banner below it both surfaced the same info. The KPI card now reads as a simple "Anomaly Status" (All clear / Anomaly detected) indicator, leaving the detailed company/period/message to the banner.
+
+### Changed
+- Bumped base font size/line-height (`frontend/src/index.css`: 16px/1.6) and page heading size (`.page-header h1`: 1.85rem, now set in `Space Grotesk`) for a dashboard meant to be read for extended periods.
+- Applied `Space Grotesk` to table headers (`.history-table th`, `.queue-table th`) and card headings (`.card h2`), consistent with metric values, so all data-labeling text uses the display font.
+- Tightened `--radius-lg`/`--radius-md` (6px/4px → 4px/3px) and card padding for a flatter, denser look consistent with the rest of the ops-tool redesign.
+- Priority Queue table (`.queue-table`) now uses `table-layout: fixed` with explicit proportional column widths instead of letting content dictate column size, so it stretches to fill the available width instead of clustering in the middle.
+
+## [1.11.0] 25-08-2026
+
+### Added
+- ADR 011 (`docs/decisions/011-merge-crm-sync-into-priority-queue.md`): documents merging CRM Sync into Priority Queue and routing seed data through the prioritization agent.
+- `backend/db/seed.js` now calls `agentService.prioritizeAndAct()` for each seeded invoice (with the other seeded invoices for that company as historical context), persists the decision via `crmService.saveAgentDecision()`, and logs each contact's assigned priority/reasoning to the console for verification. The anomalous Iberdrola invoice gets an explicit `comparison` field so the agent has deviation data to reason over despite having no prior invoices at seed time.
+
+### Changed
+- **Merged CRM Sync into Priority Queue.** Priority Queue (`/priority-queue`) is now the single internal view: it lists *all* CRM contacts (not just flagged ones), combining Priority Queue's existing columns (priority badge, root cause, reasoning excerpt/expand, action taken) with CRM Sync's last-consumption-in-kWh column.
+- `frontend/src/components/Header.jsx`: removed "CRM Sync" from "Internal Ops" nav — "Priority Queue" is the only remaining item.
+- `frontend/src/App.jsx`: `/crm` now redirects to `/priority-queue` instead of rendering a separate view.
+
+### Removed
+- `frontend/src/components/CrmView.jsx` — fully superseded by the merged Priority Queue view.
+
+## [1.10.0] 25-08-2026
+
+### Added
+- `crm_contacts` table: `agent_priority`, `agent_reasoning`, `agent_root_cause`, `agent_action_taken` columns. `crmService.saveAgentDecision()` persists the internal agent's latest decision after `prioritizeAndAct()` runs.
+- Priority Queue view (`frontend/src/components/PriorityQueueView.jsx`, route `/priority-queue`): dense, sortable-by-priority list of CRM contacts with root cause, a truncated reasoning excerpt (expandable inline), last-synced timestamp, and action taken. Replaces CRM Sync as the internal team's primary view.
+- Root `README.md`: project overview, architecture, workflow, and links to all ADRs.
+- ADR 010 (`docs/decisions/010-priority-queue-and-rebrand.md`): documents persisting agent decisions and the rebrand/navigation restructure.
+
+### Changed
+- Renamed the app from "EnergyBot" to "EnergyOps" throughout user-facing surfaces (header, HTML title, READMEs, Python service title, container startup logs). File/folder names remain `energybot`.
+- Header navigation (`frontend/src/components/Header.jsx`) split into two labeled groups with a divider: "Customer View" (Upload, Dashboard, History) and "Internal Ops" (Priority Queue, CRM Sync).
+- Full visual redesign (`frontend/src/App.css`): amber/burnt-orange (`#D97706`) accent replaces blue; flat 1px borders replace drop-shadows; warm off-white (`#FAFAF8`) content background; `Space Grotesk` for headings/metrics with tabular numerals; denser card padding; Priority Queue uses a monospace font for reasoning text.
+- Dashboard copy simplified to customer-facing language ("Your Energy Insights").
+- `backend/routes/invoices.js`: persists the agent's decision to the CRM contact (best-effort, logged on failure) right after `prioritizeAndAct()` resolves.
+
 ## [1.9.0] 19-08-2026
 
 ### Added
