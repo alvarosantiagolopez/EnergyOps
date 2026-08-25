@@ -97,7 +97,7 @@ function HistoryView() {
       <table className="history-table">
         <thead>
           <tr>
-            <th>Company</th>
+            <th>Client</th>
             <th>Period</th>
             <th>Consumption</th>
             <th>Total Cost</th>
@@ -113,7 +113,10 @@ function HistoryView() {
                   className={`history-table__row ${index % 2 === 1 ? 'history-table__row--alt' : ''}`}
                   onClick={() => setExpandedId(isExpanded ? null : invoice.id)}
                 >
-                  <td>{invoice.company || 'N/A'}</td>
+                  <td>
+                    {invoice.client_name || 'N/A'}
+                    {invoice.company && <span className="history-table__provider"> · via {invoice.company}</span>}
+                  </td>
                   <td>{invoice.period || 'N/A'}</td>
                   <td>{formatNumber(invoice.consumption_kwh)} kWh</td>
                   <td>{formatNumber(invoice.total_cost, 2)} €</td>

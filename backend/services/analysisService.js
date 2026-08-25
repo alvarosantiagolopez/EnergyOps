@@ -44,15 +44,18 @@ function percentDiff(current, avg) {
 }
 
 /**
- * Compares the current invoice against the last HISTORY_LIMIT invoices from the same
- * company in the DB and asks Claude to produce a natural-language analysis in Spanish.
+ * Compares the current invoice against the last HISTORY_LIMIT invoices for the same
+ * client (the business company manages energy for, not the invoice-issuing provider —
+ * see docs/decisions/012-client-vs-provider-data-model.md) and asks Claude to produce
+ * a natural-language analysis in Spanish.
  * @param {object} extractedData - Structured invoice data from claudeService.extractInvoiceData()
+ * @param {string} clientName - The client this invoice belongs to, used to scope historical comparison
  * @returns {Promise<{comparison: object, anomalies: string|null, analysis: string, recommendations: string[]}>}
  */
-export async function analyzeInvoice(extractedData) {
+export async function analyzeInvoice(extractedData, clientName) {
   const { rows: history } = await pool.query(
-    'SELECT consumption_kwh, cost_per_kwh, total_cost FROM invoices WHERE company = $1 ORDER BY created_at DESC LIMIT $2',
-    [extractedData.companyName, HISTORY_LIMIT]
+    'SELECT consumption_kwh, cost_per_kwh, total_cost FROM invoices WHERE client_name = $1 ORDER BY created_at DESC LIMIT $2',
+    [clientName, HISTORY_LIMIT]
   );
 
   const avgConsumption = average(history.map((r) => Number(r.consumption_kwh)).filter((v) => !Number.isNaN(v)));
@@ -156,20 +159,22 @@ Genera un análisis en español, en un tono claro y cercano, resumiendo la situa
  * Persists the extracted invoice data and its analysis to PostgreSQL.
  * @param {object} extractedData - Structured invoice data from claudeService.extractInvoiceData()
  * @param {object} analysisResult - Result of analyzeInvoice()
+ * @param {string} clientName - The client (business company manages energy for) this invoice belongs to
  * @returns {Promise<object>} The saved invoice row, including its id.
  */
-export async function saveInvoice(extractedData, analysisResult) {
+export async function saveInvoice(extractedData, analysisResult, clientName) {
   const period = `${extractedData.billingPeriod?.start ?? ''} - ${extractedData.billingPeriod?.end ?? ''}`;
 
   const { rows } = await pool.query(
     `INSERT INTO invoices
-      (filename, period, company, consumption_kwh, total_cost, cost_per_kwh, contract_type, anomalies, ai_analysis, recommendations, raw_extracted_data)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      (filename, period, company, client_name, consumption_kwh, total_cost, cost_per_kwh, contract_type, anomalies, ai_analysis, recommendations, raw_extracted_data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING *`,
     [
       extractedData.filename ?? null,
       period,
       extractedData.companyName,
+      clientName,
       extractedData.consumptionKwh,
       extractedData.totalCost,
       extractedData.costPerKwh,
@@ -185,17 +190,34 @@ export async function saveInvoice(extractedData, analysisResult) {
 }
 
 /**
+ * @returns {Promise<string[]>} Distinct client names already used across invoices,
+ * so the upload form can suggest existing clients instead of requiring free text every time.
+ */
+export async function fetchDistinctClientNames() {
+  const { rows } = await pool.query(
+    'SELECT DISTINCT client_name FROM invoices WHERE client_name IS NOT NULL ORDER BY client_name ASC'
+  );
+  return rows.map((r) => r.client_name);
+}
+
+/**
  * Calls the Python statistics microservice to compute consumption/cost trends
- * across all historical invoices. Fails gracefully: if the service is
- * unreachable or errors, logs a warning and returns null so the caller can
- * continue without trend data.
+ * across historical invoices, optionally scoped to a single client. Fails
+ * gracefully: if the service is unreachable or errors, logs a warning and
+ * returns null so the caller can continue without trend data.
+ * @param {string} [clientName] - If provided, scopes trends to this client only
  * @returns {Promise<object|null>}
  */
-export async function fetchTrends() {
+export async function fetchTrends(clientName) {
   try {
-    const { rows } = await pool.query(
-      'SELECT period, consumption_kwh, total_cost FROM invoices ORDER BY created_at ASC'
-    );
+    const { rows } = clientName
+      ? await pool.query(
+        'SELECT period, consumption_kwh, total_cost FROM invoices WHERE client_name = $1 ORDER BY created_at ASC',
+        [clientName]
+      )
+      : await pool.query(
+        'SELECT period, consumption_kwh, total_cost FROM invoices ORDER BY created_at ASC'
+      );
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);

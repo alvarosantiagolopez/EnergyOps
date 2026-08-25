@@ -49,8 +49,9 @@ function ResultView({ data, onUploadAnother }) {
     <div className="result-view">
       <div className="metric-grid">
         <div className="metric-card">
-          <span className="metric-card__label">Company</span>
-          <span className="metric-card__value metric-card__value--small">{extracted.companyName || 'N/A'}</span>
+          <span className="metric-card__label">Client</span>
+          <span className="metric-card__value metric-card__value--small">{extracted.clientName || 'N/A'}</span>
+          <span className="metric-card__subvalue">via {extracted.companyName || 'unknown provider'}</span>
           {crmSync && (
             <span className="crm-sync-badge">✓ Synced with CRM</span>
           )}

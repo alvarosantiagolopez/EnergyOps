@@ -1,4 +1,4 @@
-# EnergyBot Statistics Service
+# EnergyOps Statistics Service
 
 A small FastAPI microservice that computes statistical trends (linear regression, seasonality, savings potential) over a user's historical energy invoices. Used by the Node.js backend as an optional enrichment step — see [docs/decisions/007-python-microservice-for-statistics.md](../docs/decisions/007-python-microservice-for-statistics.md).
 
@@ -46,6 +46,6 @@ Response body:
 }
 ```
 
-Fields accept either snake_case (`consumption_kwh`, `total_cost`) or camelCase (`consumptionKwh`, `totalCost`) invoice keys, matching both the raw DB rows and the Claude-extracted invoice shape used elsewhere in EnergyBot.
+Fields accept either snake_case (`consumption_kwh`, `total_cost`) or camelCase (`consumptionKwh`, `totalCost`) invoice keys, matching both the raw DB rows and the Claude-extracted invoice shape used elsewhere in EnergyOps.
 
 Requires at least 2 invoices with a usable consumption value and period/date; otherwise responds with `insufficient_data: true` and null trend fields.

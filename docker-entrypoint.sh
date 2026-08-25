@@ -1,7 +1,7 @@
 #!/bin/sh
 # Start both Python and Node services in the same container
 
-echo "Starting EnergyBot services..."
+echo "Starting EnergyOps services..."
 
 # Start Python service in the background
 echo "Starting Python statistics service on port 8000..."
