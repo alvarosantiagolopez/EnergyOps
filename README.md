@@ -103,4 +103,4 @@ Requires PostgreSQL, Node.js, and Python 3.12+.
 
 ## Live demo
 
-[ADD URL HERE]
+https://energyops.up.railway.app
