@@ -8,11 +8,13 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const { Pool } = pg;
 
-const isInternal = process.env.DATABASE_URL?.includes('.railway.internal');
+const databaseUrl = process.env.DATABASE_URL || '';
+const isLocal = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1');
+const isInternal = databaseUrl.includes('.railway.internal');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: isInternal ? false : { rejectUnauthorized: false },
+  ssl: isLocal || isInternal ? false : { rejectUnauthorized: false },
   max: 5,
   idleTimeoutMillis: 30000,
 });
