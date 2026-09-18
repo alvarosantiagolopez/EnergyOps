@@ -59,6 +59,7 @@ energybot/
 - [x] Merged CRM Sync into Priority Queue as the single internal view (lists all contacts, not just flagged ones); seed script now routes every seeded invoice through the prioritization agent so demo data has realistic reasoning
 - [x] Full-width layout pass (removed scaffold's centered max-width column) and design-token cleanup so amber/navy system applies consistently across Dashboard, Upload, Result, History, and Priority Queue
 - [x] Separated client (the business company manages energy for) from energy provider (Endesa/Iberdrola/etc., extracted from the PDF) as distinct entities throughout the data model — `invoices.client_name`, user-supplied at upload with autocomplete; `crm_contacts` keyed by client with a separate `provider` column; historical comparison and prioritization now scoped per client, not per provider
+- [x] Documented a single `.env` workflow with commented local and Railway database URLs; local development commands use the active URL without environment-specific script aliases
 
 ## Key decisions made
 - Use Claude API directly (with native PDF support + structured outputs) for invoice extraction instead of a traditional OCR library. See docs/decisions/002-claude-api-for-extraction.md.
