@@ -72,14 +72,20 @@ Full decision log, including superseded decisions: [docs/decisions/](docs/decisi
 
 Requires PostgreSQL, Node.js, and Python 3.12+.
 
-1. Copy `.env.example` to `.env` and fill in:
+1. Copy `.env.example` to `.env` and fill in the credentials. Keep the local and Railway
+   `DATABASE_URL` values in the same file, commenting out the one you are not using:
    ```
-   DATABASE_URL=postgresql://user:password@host:port/database
+   DATABASE_URL=postgresql://energyops:energyops_dev@localhost:5432/energyops
    ANTHROPIC_API_KEY=sk-ant-...
    PORT=3000
    RESEND_API_KEY=re_...       # optional — email alerts are skipped silently without it
    ALERT_EMAIL=alerts@example.com
    ```
+
+   Start the local database with `docker compose -f docker-compose.local.yml up -d`.
+   Use `npm run dev`, `npm run migrate`, and `npm run seed` from `backend/`.
+   The `postgres.railway.internal` hostname only works inside Railway; from your computer use
+   Railway's public TCP proxy URL instead. In the deployed app, Railway variables take precedence.
 
 2. **Backend** (from `backend/`):
    ```bash
